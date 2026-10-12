@@ -176,7 +176,9 @@ def agent_loop(messages: list):
 
         results = []
         for block in tool_calls:
-            print(f"\033[33m> {block.name}\033[0m")
+            print(f"\n[Tool] {block.name}")
+            print(f"[Arguments] {block.input}")
+
             handler = TOOL_HANDLERS.get(block.name)
             output = handler(**block.input) if handler else f"Unknown: {block.name}"
             print(str(output)[:200])
