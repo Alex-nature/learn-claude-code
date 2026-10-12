@@ -230,7 +230,8 @@ def agent_loop(messages: list):
 
         results = []
         for block in tool_calls:
-            print(f"\033[36m> {block.name}\033[0m")
+            print(f"\n[Tool] {block.name}")
+            print(f"[Arguments] {block.input}")
 
             # s03 change: run through permission pipeline before executing
             if not check_permission(block):
