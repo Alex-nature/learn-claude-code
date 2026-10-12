@@ -19,7 +19,6 @@ Run:
 """
 
 import asyncio
-import fcntl
 import hashlib
 import importlib.util
 import json
@@ -31,6 +30,11 @@ import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+
+if os.name == "nt":
+    import msvcrt
+else:
+    import fcntl
 
 WORKFLOW_AGENT_ENVIRONMENT = (
     "Host OS: Windows. This workflow agent only responds to its supplied step; "
@@ -93,6 +97,26 @@ _run_locks_guard = threading.Lock()
 _run_locks: dict[str, threading.Lock] = {}
 
 
+def _lock_run_file(handle):
+    if os.name == "nt":
+        handle.seek(0, os.SEEK_END)
+        if handle.tell() == 0:
+            handle.write(b"\0")
+            handle.flush()
+        handle.seek(0)
+        msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+    else:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+
+def _unlock_run_file(handle):
+    if os.name == "nt":
+        handle.seek(0)
+        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+    else:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
 @contextmanager
 def workflow_run_lock(run_id: str):
     """Hold one run across threads and host processes for its full lifecycle."""
@@ -102,26 +126,31 @@ def workflow_run_lock(run_id: str):
         raise WorkflowInputError(f"workflow run {run_id} is already active")
 
     handle = None
+    file_locked = False
     try:
         STORE.mkdir(parents=True, exist_ok=True)
-        handle = (STORE / f"{run_id}.lock").open("a+", encoding="utf-8")
+        handle = (STORE / f"{run_id}.lock").open("a+b")
         try:
-            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError as exc:
+            _lock_run_file(handle)
+            file_locked = True
+        except OSError as exc:
             raise WorkflowInputError(
                 f"workflow run {run_id} is already active"
             ) from exc
         yield
     finally:
-        if handle is not None:
-            try:
-                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
-            finally:
-                handle.close()
-        local_lock.release()
-        with _run_locks_guard:
-            if not local_lock.locked() and _run_locks.get(run_id) is local_lock:
-                _run_locks.pop(run_id, None)
+        try:
+            if handle is not None:
+                try:
+                    if file_locked:
+                        _unlock_run_file(handle)
+                finally:
+                    handle.close()
+        finally:
+            local_lock.release()
+            with _run_locks_guard:
+                if not local_lock.locked() and _run_locks.get(run_id) is local_lock:
+                    _run_locks.pop(run_id, None)
 
 
 # -- Metadata Validation --

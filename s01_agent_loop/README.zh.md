@@ -115,6 +115,19 @@ def agent_loop(messages):
 
 三十多行，这就是最小可运行的 agent harness 内核。它为模型提供持续行动的最小运行框架：模型负责决策（要不要调工具、调哪个），harness 负责执行（调用工具，把结果作为新消息追加）。后面 16 个章节都在这个循环上叠加机制，循环本身始终不变。
 
+在 Windows 上，`run_bash` 使用 `cmd.exe`。将这个子 shell 切换到 UTF-8，并按 UTF-8 解码捕获的输出，这样 `curl` 等工具的结果就能正确显示：
+
+```python
+encoding = "utf-8" if os.name == "nt" else None
+if os.name == "nt":
+    command = f"chcp 65001 >nul & {command}"
+r = subprocess.run(command, shell=True, cwd=os.getcwd(),
+                   capture_output=True, text=True, encoding=encoding,
+                   errors="replace", timeout=120)
+```
+
+这样 Agent 对话中的 UTF-8 输出就能正确显示。
+
 ---
 
 ## 试一下

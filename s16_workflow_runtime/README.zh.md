@@ -156,7 +156,7 @@ class LocalWorkflowTask:
 
 ## 存储：快照 + journal，断了能续
 
-运行时把每次运行的数据存在 `s16_workflow_runtime/.runtime/`：快照 `<runId>.json`、输出 `<runId>.output.json`、journal `<runId>.journal.jsonl` 和协调文件 `<runId>.lock`。每次新运行都会在打开 journal 前，用排他式文件创建预留新的 `runId`。整次执行和最终持久化期间都持有 run lock，另一个进程不能同时 resume 同一次运行。快照记录 workflow 名称、参数和任务状态；resume 会先验证已保存的快照和 journal，再改动原有的成功产物。
+运行时把每次运行的数据存在 `s16_workflow_runtime/.runtime/`：快照 `<runId>.json`、输出 `<runId>.output.json`、journal `<runId>.journal.jsonl` 和协调文件 `<runId>.lock`。每次新运行都会在打开 journal 前，用排他式文件创建预留新的 `runId`。整次执行和最终持久化期间都持有 run lock，另一个进程不能同时 resume 同一次运行。Unix 使用 `fcntl.flock`；Windows 使用 `msvcrt.locking` 锁定同一文件中的一个字节。快照记录 workflow 名称、参数和任务状态；resume 会先验证已保存的快照和 journal，再改动原有的成功产物。
 
 journal 是断点续跑的核心，它一条一条记下来每个 `agent()` 的结果：
 

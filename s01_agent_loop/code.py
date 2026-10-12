@@ -82,10 +82,17 @@ def run_bash(command: str) -> str:
     if any(d in command for d in dangerous):
         return "Error: Dangerous command blocked"
     try:
+        encoding = "utf-8" if os.name == "nt" else None
+        if os.name == "nt":
+            command = f"chcp 65001 >nul & {command}"
         r = subprocess.run(command, shell=True, cwd=os.getcwd(),
-                           capture_output=True, text=True, errors="replace", timeout=120)
+                           capture_output=True, text=True, encoding=encoding,
+                           errors="replace", timeout=120)
         out = (r.stdout + r.stderr).strip()
-        return out[:50000] if out else "(no output)"
+        return (
+            f"Exit code: {r.returncode}\n"
+            f"Output: {out[:50000] if out else '(no output)'}"
+        )
     except subprocess.TimeoutExpired:
         return "Error: Timeout (120s)"
     except (FileNotFoundError, OSError) as e:
@@ -94,7 +101,11 @@ def run_bash(command: str) -> str:
 
 # -- The core pattern: a while loop that calls tools until the model stops --
 def agent_loop(messages: list):
+    round_count = 0
     while True:
+        round_count += 1
+        print(f"\n[LLM Round {round_count}]")
+
         response = client.messages.create(
             model=MODEL, system=SYSTEM, messages=messages,
             tools=TOOLS, max_tokens=8000,

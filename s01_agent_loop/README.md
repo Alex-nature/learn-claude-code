@@ -115,6 +115,19 @@ def agent_loop(messages):
 
 Just over 30 lines — that's the minimal runnable agent harness kernel. It's not intelligence itself, but the smallest runtime framework that lets the model keep acting. The model decides (whether to call a tool, which one), the harness executes (calls the tool and appends the result as a new message). The next 16 chapters all add mechanisms on top of this loop. The loop itself never changes.
 
+On Windows, `run_bash` uses `cmd.exe`. Switch that shell process to UTF-8 and decode its captured output as UTF-8 so tools such as `curl` display their results correctly:
+
+```python
+encoding = "utf-8" if os.name == "nt" else None
+if os.name == "nt":
+    command = f"chcp 65001 >nul & {command}"
+r = subprocess.run(command, shell=True, cwd=os.getcwd(),
+                   capture_output=True, text=True, encoding=encoding,
+                   errors="replace", timeout=120)
+```
+
+This keeps UTF-8 output readable in the agent transcript.
+
 ---
 
 ## Try It

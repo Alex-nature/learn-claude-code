@@ -115,6 +115,19 @@ def agent_loop(messages):
 
 30 行あまり — これが最小実行可能な agent harness のカーネルだ。これは知能そのものではなく、モデルが継続的に行動できるための最小ランタイムフレームワーク。モデルが決定し（ツールを呼ぶか、どれを呼ぶか）、harness が実行を担う（ツールを呼び出し、結果を新しいメッセージとして追加する）。次の 16 章はすべてこのループの上に仕組みを積み重ねていく。ループ自体は永遠に変わらない。
 
+Windows では `run_bash` は `cmd.exe` を使用する。この子 shell を UTF-8 に切り替え、取得した出力も UTF-8 としてデコードすると、`curl` などの結果を正しく表示できる：
+
+```python
+encoding = "utf-8" if os.name == "nt" else None
+if os.name == "nt":
+    command = f"chcp 65001 >nul & {command}"
+r = subprocess.run(command, shell=True, cwd=os.getcwd(),
+                   capture_output=True, text=True, encoding=encoding,
+                   errors="replace", timeout=120)
+```
+
+これにより、agent の会話内で UTF-8 出力が正しく表示される。
+
 ---
 
 ## 試してみよう

@@ -201,6 +201,9 @@ cython_debug/
 .worktrees/
 .scheduled_tasks.json
 
+# Temporary weather response saved while trying the s01 agent
+/weather.json
+
 # Accidental root npm lockfile; web/package-lock.json is tracked.
 /package-lock.json
 
