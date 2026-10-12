@@ -217,22 +217,45 @@ register_hook("PostToolUse", large_output_hook)
 register_hook("Stop", summary_hook)
 
 
+# 实验：只阻止第一次 Stop，避免无限循环
+stop_state = {"used": False}
+
+def one_time_stop_hook(messages: list):
+    if not stop_state["used"]:
+        stop_state["used"] = True
+        print("[HOOK] Stop: force one more LLM round")
+        return "请检查你刚才的回答是否正确，然后再次给出最终答案。不要调用工具。"
+
+    print("[HOOK] Stop: allow exit")
+    return None
+
+register_hook("Stop", one_time_stop_hook)
+
+
 # -- Agent loop: same structure as s03, but no hard-coded check --
 # s03: if not check_permission(block): ...
 # s04: if trigger_hooks("PreToolUse", block): ...
 
 def agent_loop(messages: list):
+    round_count = 0
+
     while True:
+
+        round_count += 1
+        print(f"\n[LLM Round {round_count}]")
+
         response = client.messages.create(
             model=MODEL, system=SYSTEM, messages=messages,
             tools=TOOLS, max_tokens=8000,
         )
         messages.append({"role": "assistant", "content": response.content})
 
+        # 从模型回答中依次提取若干工具调用请求
         tool_calls = [
             block for block in response.content if block.type == "tool_use"
         ]
         if not tool_calls:
+            # 当没有工具调用时，触发stop事件，如果返回值不是None，则将其加入历史消息，并继续执行一轮，否则结束执行，输出结果
             force = trigger_hooks("Stop", messages)
             if force:
                 messages.append({"role": "user", "content": force})
@@ -274,6 +297,7 @@ if __name__ == "__main__":
         trigger_hooks("UserPromptSubmit", query)
         history.append({"role": "user", "content": query})
         agent_loop(history)
+        # 从历史消息列表中的最后一条，取出llm给出的最终回答
         for block in history[-1]["content"]:
             if getattr(block, "type", None) == "text":
                 print(block.text)
