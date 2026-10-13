@@ -277,6 +277,8 @@ def run_subagent(prompt: str) -> str:
     print("\n\033[35m[Subagent started]\033[0m")
     messages = [{"role": "user", "content": prompt}]
 
+    print(f"[SUB DEBUG] Initial messages: {len(messages)}")
+
     for _ in range(30):
         response = client.messages.create(
             model=MODEL,
@@ -296,6 +298,9 @@ def run_subagent(prompt: str) -> str:
                 messages.append({"role": "user", "content": force})
                 continue
             print("\033[35m[Subagent done]\033[0m")
+
+            print(f"[SUB DEBUG] Final messages: {len(messages)}")
+
             return extract_text(response.content) or "(no summary)"
 
         results = []
@@ -351,14 +356,28 @@ def agent_loop(messages: list):
             return
 
         results = []
+
         for block in tool_calls:
+            if block.name == "task":
+                print(f"[PARENT DEBUG] Before task: {len(messages)}")
+
             output = execute_tool(block, TOOL_HANDLERS)
+
+            if block.name == "task":
+                print(f"[PARENT DEBUG] After task: {len(messages)}")
+
             results.append({
                 "type": "tool_result",
                 "tool_use_id": block.id,
                 "content": output,
             })
-        messages.append({"role": "user", "content": results})
+
+        messages.append({
+            "role": "user",
+            "content": results
+        })
+
+        print(f"[PARENT DEBUG] After tool results: {len(messages)}")
 
 
 if __name__ == "__main__":
