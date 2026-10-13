@@ -338,9 +338,20 @@ def agent_loop(messages: list):
                             "content": str(output)})
 
         rounds_since_todo = 0 if used_todo else rounds_since_todo + 1
+
+        print(
+            f"[DEBUG] rounds_since_todo={rounds_since_todo}, "
+            f"used_todo={used_todo}"
+        )
+
         if rounds_since_todo >= 3:
-            results.append({"type": "text",
-                            "text": "<reminder>Update your todos.</reminder>"})
+            print("[REMINDER] Harness injected a TODO reminder")
+
+            results.append({
+                "type": "text",
+                "text": "<reminder>Update your todos.</reminder>"
+            })
+
             rounds_since_todo = 0
 
         messages.append({"role": "user", "content": results})
